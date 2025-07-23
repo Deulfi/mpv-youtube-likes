@@ -2,6 +2,9 @@
 
 Mpv script that displays YouTube video information including likes, (dislikes), view count, upload date, and channel name in an OSD message.
 
+<img width="1920" height="1079" alt="mpv-yt-l" src="https://github.com/user-attachments/assets/66aee845-74af-4fa1-870b-d610816c0d22" />
+
+
 ## How it works
 
 The script monitors mpv's yt-dlp integration to extract video metadata when YouTube videos are loaded. It automatically formats and displays the information via OSD overlay and optionally creates a button in uosc for manual toggling.
