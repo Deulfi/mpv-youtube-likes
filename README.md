@@ -12,10 +12,12 @@ The script monitors mpv's yt-dlp integration to extract video metadata when YouT
 2. Copy `youtube-likes.conf` to your script-opts directory
 
 ### Optional: For dislikes support
+
 You need the yt-dlp-ReturnYoutubeDislike plugin from pukkandan:
 
-1. Download from https://github.com/pukkandan/yt-dlp-returnyoutubedislike
+1. Download from <https://github.com/pukkandan/yt-dlp-returnyoutubedislike>
 2. For portable Windows installation:
+
 ```
 └── yt-dlp.exe
 └── yt-dlp-plugins\
@@ -24,12 +26,15 @@ You need the yt-dlp-ReturnYoutubeDislike plugin from pukkandan:
             └── postprocessor\
                 └── ryd.py
 ```
-3. Add to your `yt-dlp.conf`: 
+
+3. Add to your `yt-dlp.conf`:
+
 ```
 --use-postprocessor ReturnYoutubeDislike:when=pre_process
 ```
 
 **OR** add to your `mpv.conf`:
+
 ```
 ytdl-raw-options=use-postprocessor=ReturnYoutubeDislike:when=pre_process
 ```
@@ -37,13 +42,17 @@ ytdl-raw-options=use-postprocessor=ReturnYoutubeDislike:when=pre_process
 ## Usage
 
 ### Manual trigger
+
 Add to your `input.conf`:
+
 ```
 l script-message show-youtube-likes
 ```
 
 ### uosc integration
+
 Add to your `uosc.conf` controls (gaps need to be added manually):
+
 ```
 controls=...,<stream>button:Likes_Button,...
 ```
