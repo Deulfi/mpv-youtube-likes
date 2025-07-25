@@ -200,7 +200,7 @@ end
 local function fetch_video_data_by_id(youtube_id)
     local yt_dlp_path = find_ytdl_path()
     
-    local args = {yt_dlp_path, "--dump-json", "--no-download", 
+    local args = {yt_dlp_path, "--dump-json", "--no-download", "--no-sponsorblock",
                   "https://www.youtube.com/watch?v=" .. youtube_id}
     
     local result = mp.command_native{
