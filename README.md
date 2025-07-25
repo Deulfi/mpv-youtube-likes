@@ -72,6 +72,17 @@ Edit `script-opts/youtube-likes.conf`:
 - `show_channel=yes` - Include channel name
 - `compact_numbers=yes` - Use 1.2M format instead of 1,234,567
 
+## Local files
+
+This script also works with local files if the Youtube id is in the filename. You can achieve this with yt-dlp filename flag like:
+
+```
+-o "%(title)s [%(id)s].%(ext)s"
+```
+resulting in a filename like:
+"Some video title [x2cYNfg3b14].mkv"
+Of note is that it might take a few seconds until the script receives the metadata from yt-dlp.
+
 ## Requirements
 
 - mpv with yt-dlp support
