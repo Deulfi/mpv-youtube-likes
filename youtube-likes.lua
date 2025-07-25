@@ -36,6 +36,27 @@ local opts = {
 local current_video_data = nil
 local osd_visible = nil
 local uosc_present = false
+local ytdl_path = nil
+
+-- Find yt-dlp executable path (parts lifted from ytdl_hook)
+local function find_ytdl_path()
+    if ytdl_path then return ytdl_path end
+    local platform_is_windows = (package.config:sub(1, 1) == "\\")
+    local paths_to_search = { "yt-dlp", "yt-dlp_x86", "youtube-dl" }
+    
+    for _, path in pairs(paths_to_search) do
+        local exesuf = platform_is_windows and ".exe" or ""
+        local ytdl_cmd = mp.find_config_file(path .. exesuf)
+        if ytdl_cmd then
+            msg.verbose("Found youtube-dl at: " .. ytdl_cmd)
+            return ytdl_cmd
+        end
+    end
+    
+    -- Fallback to yt-dlp in PATH
+    ytdl_path = "yt-dlp"
+    return ytdl_path
+end
 
 -- Format large numbers in a compact way
 local function format_number(num)
@@ -131,6 +152,7 @@ end
 -- Process the JSON data from yt-dlp
 local function process_ytdl_data(ytdl_data)
     if not ytdl_data then return end
+    msg.debug("Processing yt-dlp data")
     
     current_video_data = {
         title = ytdl_data.title,
@@ -149,7 +171,6 @@ local function process_ytdl_data(ytdl_data)
         -- Small delay to ensure video has started
         mp.add_timeout(1.0, show_likes_info)
     end
-
     if uosc_present then
         local likes_text = "👍" .. format_number(current_video_data.like_count)
         local dislikes_text = " 👎" .. format_number(current_video_data.dislike_count)
@@ -160,8 +181,42 @@ local function process_ytdl_data(ytdl_data)
             badge = likes_text,
             tooltip = tooltip,
             command = "script-message show-youtube-likes",
-            hide = false
+            hide = false,
         }))
+    end
+end
+
+-- Extract YouTube ID from filename for offline videos
+local function extract_youtube_id_from_filename(filepath)
+    local id = filepath:match("%[([%w-_]+)%]")
+    if id and #id == 11 then
+        msg.info("Found YouTube ID. Fetching data. This may take a while...")
+        return id
+    end
+    return nil 
+end
+
+-- Fetch video data using YouTube ID
+local function fetch_video_data_by_id(youtube_id)
+    local yt_dlp_path = find_ytdl_path()
+    
+    local args = {yt_dlp_path, "--dump-json", "--no-download", 
+                  "https://www.youtube.com/watch?v=" .. youtube_id}
+    
+    local result = mp.command_native{
+        name = "subprocess",
+        capture_stdout = true,
+        playback_only = false,
+        args = args
+    }
+    
+    if result.stdout then
+        local json_data = utils.parse_json(result.stdout)
+        if json_data then
+            process_ytdl_data(json_data)
+        end
+    else
+        msg.error("Failed to fetch video data: " .. (result.stderr or "unknown error"))
     end
 end
 
@@ -186,6 +241,18 @@ end)
 -- Clear data when file changes
 mp.register_event("start-file", function()
     current_video_data = nil
+    
+    -- For offline videos, try to extract YouTube ID from filename
+    local filepath = mp.get_property("path", "")
+    if filepath and not filepath:match("^https?://") then
+        local youtube_id = extract_youtube_id_from_filename(filepath)
+        if youtube_id then
+            msg.info("Found YouTube ID in filename: " .. youtube_id)
+            mp.add_timeout(1.0, function()
+                fetch_video_data_by_id(youtube_id)
+            end)
+        end
+    end
 end)
 
 
