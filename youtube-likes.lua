@@ -240,11 +240,12 @@ end)
 
 -- Clear data when file changes
 mp.register_event("start-file", function()
+
+end)
+mp.register_event("file-loaded", function()
     current_video_data = nil
     -- hide button in case of youtube video -> local file, button would still show up.
     mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({icon = "", hide = true}))
-end)
-mp.register_event("file-loaded", function()
     -- For offline videos, try to extract YouTube ID from filename
     local filepath = mp.get_property("path", "")
     if filepath and not filepath:match("^https?://") then
