@@ -175,7 +175,7 @@ local function process_ytdl_data(ytdl_data)
         local likes_text = "👍" .. format_number(current_video_data.like_count)
         local dislikes_text = " 👎" .. format_number(current_video_data.dislike_count)
         local tooltip = current_video_data.dislike_count and current_video_data.dislike_count > 0 and (likes_text .. dislikes_text) or likes_text
-        tooltip = tooltip .. " 👁" .. current_video_data.view_count
+        tooltip = tooltip .. " 👁" .. format_number(current_video_data.view_count)
         mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({
             icon = "",
             badge = likes_text,
@@ -239,25 +239,26 @@ mp.observe_property('user-data/mpv/ytdl/json-subprocess-result', 'native', funct
 end)
 
 -- Clear data when file changes
-mp.register_event("start-file", function()
-
-end)
 mp.register_event("file-loaded", function()
+    --TODO: keep an eye on that file-loaded is fast enough and change the clearing data back to start-file if needed
     current_video_data = nil
     -- hide button in case of youtube video -> local file, button would still show up.
     mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({icon = "", hide = true}))
-    -- For offline videos, try to extract YouTube ID from filename
+    -- For offline videos, try to extract YouTube ID from filename or PURL
     local filepath = mp.get_property("path", "")
+
     if filepath and not filepath:match("^https?://") then
 
         local youtube_id = extract_youtube_id_from_filename(filepath)
         if youtube_id then msg.info("Found YouTube ID in filename: " .. youtube_id) end
         local purl = mp.get_property("metadata/by-key/PURL")
         if purl then msg.info("Found PURL in the Video: ".. purl) end
+
         if youtube_id or purl then
             fetch_video_data_for_local(youtube_id, purl)
         end
     end
+
 end)
 
 
