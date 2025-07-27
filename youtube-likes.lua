@@ -197,11 +197,11 @@ local function extract_youtube_id_from_filename(filepath)
 end
 
 -- Fetch video data using YouTube ID
-local function fetch_video_data_by_id(youtube_id)
+local function fetch_video_data_for_local(youtube_id, purl)
     local yt_dlp_path = find_ytdl_path()
-    
-    local args = {yt_dlp_path, "--dump-json", "--no-download", "--no-sponsorblock",
-                  "https://www.youtube.com/watch?v=" .. youtube_id}
+    local url = "https://www.youtube.com/watch?v=" .. youtube_id
+
+    local args = {yt_dlp_path, "--dump-json", "--no-download", "--no-sponsorblock", purl or url}
     
     local result = mp.command_native{
         name = "subprocess",
@@ -243,16 +243,18 @@ mp.register_event("start-file", function()
     current_video_data = nil
     -- hide button in case of youtube video -> local file, button would still show up.
     mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({icon = "", hide = true}))
-    
+end)
+mp.register_event("file-loaded", function()
     -- For offline videos, try to extract YouTube ID from filename
     local filepath = mp.get_property("path", "")
     if filepath and not filepath:match("^https?://") then
+
         local youtube_id = extract_youtube_id_from_filename(filepath)
-        if youtube_id then
-            msg.info("Found YouTube ID in filename: " .. youtube_id)
-            mp.add_timeout(1.0, function()
-                fetch_video_data_by_id(youtube_id)
-            end)
+        if youtube_id then msg.info("Found YouTube ID in filename: " .. youtube_id) end
+        local purl = mp.get_property("metadata/by-key/PURL")
+        if purl then msg.info("Found PURL in the Video: ".. purl) end
+        if youtube_id or purl then
+            fetch_video_data_for_local(youtube_id, purl)
         end
     end
 end)
