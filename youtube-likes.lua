@@ -29,11 +29,17 @@ local opts = {
     
     -- Format for displaying numbers (true = 1.2M, false = 1,234,567)
     compact_numbers = true,
+
+    -- Show likes info in button
+    text_in_button = true,
+
+    -- Icon for button use 👍 or any from https://fonts.google.com/icons?icon.platform=web&icon.set=Material+Icons&icon.style=Rounded
+    icon_for_button = "",
 }
 
 (require "mp.options").read_options(opts, "youtube-likes")
 
-local current_video_data = nil
+local video_data = nil
 local osd_visible = nil
 local uosc_present = false
 local ytdl_path = nil
@@ -86,20 +92,20 @@ local function format_number(num)
 end
 
 -- Display the likes information
-local function show_likes_info()
+local function show_likes_info(video_data)
     -- If OSD is currently visible, hide it
     if osd_visible then
         mp.osd_message("", 0)
         osd_visible = false
         return
     end
-    if not current_video_data then
+    if not video_data then
         mp.osd_message("No video data available", 2)
         return
     end
     
     local lines = {}
-    local title = current_video_data.title or "Unknown Title"
+    local title = video_data.title or "Unknown Title"
     
     -- Add title (truncate if too long)
     if string.len(title) > 80 then
@@ -110,8 +116,8 @@ local function show_likes_info()
     end
     
     -- Add likes/dislikes
-    local likes = current_video_data.like_count
-    local dislikes = current_video_data.dislike_count
+    local likes = video_data.like_count
+    local dislikes = video_data.dislike_count
     
     if likes then
         local like_str = "👍 " .. likes
@@ -122,13 +128,13 @@ local function show_likes_info()
     end
     
     -- Add view count
-    if opts.show_views and current_video_data.view_count then
-        table.insert(lines, "👁 " .. current_video_data.view_count .. " views")
+    if opts.show_views and video_data.view_count then
+        table.insert(lines, "👁 " .. video_data.view_count .. " views")
     end
     
     -- Add upload date
-    if opts.show_date and current_video_data.upload_date then
-        local date_str = current_video_data.upload_date
+    if opts.show_date and video_data.upload_date then
+        local date_str = video_data.upload_date
         -- Convert YYYYMMDD to YYYY-MM-DD
         if string.len(date_str) == 8 then
             date_str = string.sub(date_str, 1, 4) .. "-" .. 
@@ -139,8 +145,8 @@ local function show_likes_info()
     end
     
     -- Add channel name
-    if current_video_data.uploader and opts.show_channel then
-        table.insert(lines, "📺 " .. current_video_data.uploader)
+    if video_data.uploader and opts.show_channel then
+        table.insert(lines, "📺 " .. video_data.uploader)
     end
     
     local message = table.concat(lines, "\n")
@@ -151,10 +157,10 @@ end
 
 -- Process the JSON data from yt-dlp
 local function process_ytdl_data(ytdl_data)
-    if not ytdl_data then return end
+    if not ytdl_data then msg.debug("No yt-dlp data") return end
     msg.debug("Processing yt-dlp data")
-    
-    current_video_data = {
+
+    video_data = {
         title = ytdl_data.title,
         like_count = ytdl_data.like_count,
         dislike_count = ytdl_data.dislike_count,
@@ -164,21 +170,31 @@ local function process_ytdl_data(ytdl_data)
         duration = ytdl_data.duration,
     }
     
-    msg.verbose("Extracted video data: likes=" .. tostring(current_video_data.like_count) .. 
-                ", views=" .. tostring(current_video_data.view_count))
+    msg.verbose("Extracted video data: likes=" .. tostring(video_data.like_count) .. 
+                ", views=" .. tostring(video_data.view_count))
     
     if opts.show_on_start then
         -- Small delay to ensure video has started
-        mp.add_timeout(1.0, show_likes_info)
+        mp.add_timeout(1.0, function() show_likes_info(video_data) end)
     end
+
     if uosc_present then
-        local likes_text = "👍" .. format_number(current_video_data.like_count)
-        local dislikes_text = " 👎" .. format_number(current_video_data.dislike_count)
-        local tooltip = current_video_data.dislike_count and current_video_data.dislike_count > 0 and (likes_text .. dislikes_text) or likes_text
-        tooltip = tooltip .. " 👁" .. format_number(current_video_data.view_count)
+        local has_icon = opts.icon_for_button and opts.icon_for_button ~= ""
+        local likes_text = has_icon and format_number(video_data.like_count) or ("👍" .. format_number(video_data.like_count))
+        
+        local tooltip = likes_text
+        if video_data.dislike_count and video_data.dislike_count > 0 then
+            tooltip = tooltip .. " 👎" .. format_number(video_data.dislike_count)
+        end
+        tooltip = tooltip .. " 👁" .. format_number(video_data.view_count)
+        
+        if not opts.text_in_button and not has_icon then
+            opts.icon_for_button = "thumb_up"
+        end
+
         mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({
-            icon = "",
-            badge = likes_text,
+            icon = opts.icon_for_button or "",
+            badge = opts.text_in_button and likes_text or nil,
             tooltip = tooltip,
             command = "script-message show-youtube-likes",
             hide = false,
@@ -235,15 +251,18 @@ mp.observe_property('user-data/mpv/ytdl/json-subprocess-result', 'native', funct
         return
     end
     
+    msg.info("Proceeding with yt-dlp data")
     process_ytdl_data(json_data)
 end)
 
 -- Clear data when file changes
-mp.register_event("file-loaded", function()
-    --TODO: keep an eye on that file-loaded is fast enough and change the clearing data back to start-file if needed
-    current_video_data = nil
+mp.register_event("start-file", function()
+    video_data = nil
     -- hide button in case of youtube video -> local file, button would still show up.
     mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({icon = "", hide = true}))
+end)
+-- Clear data when file changes
+mp.register_event("file-loaded", function()
     -- For offline videos, try to extract YouTube ID from filename or PURL
     local filepath = mp.get_property("path", "")
 
@@ -267,11 +286,11 @@ mp.register_script_message("show-youtube-likes", show_likes_info)
 
 -- Script message interface for other scripts
 mp.register_script_message("get-video-likes", function()
-    if current_video_data and current_video_data.like_count then
+    if video_data and video_data.like_count then
         mp.commandv("script-message", "video-likes-result", 
-                   tostring(current_video_data.like_count),
-                   tostring(current_video_data.dislike_count or 0),
-                   tostring(current_video_data.view_count or 0))
+                   tostring(video_data.like_count),
+                   tostring(video_data.dislike_count or 0),
+                   tostring(video_data.view_count or 0))
     else
         mp.commandv("script-message", "video-likes-result", "0", "0", "0")
     end
