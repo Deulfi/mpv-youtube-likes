@@ -92,7 +92,7 @@ local function format_number(num)
 end
 
 -- Display the likes information
-local function show_likes_info(video_data)
+local function show_likes_info()
     -- If OSD is currently visible, hide it
     if osd_visible then
         mp.osd_message("", 0)
@@ -175,7 +175,9 @@ local function process_ytdl_data(ytdl_data)
     
     if opts.show_on_start then
         -- Small delay to ensure video has started
-        mp.add_timeout(1.0, function() show_likes_info(video_data) end)
+        --mp.add_timeout(1.0, function() show_likes_info(video_data) end)
+        -- no delay since we use file-loaded event now
+        show_likes_info()
     end
 
     if uosc_present then
@@ -302,3 +304,5 @@ mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.for
 mp.register_script_message('uosc-version', function(version)
     uosc_present = true
   end)
+
+  --TODO: says no data available but button shows the data.Button is also with icon.
