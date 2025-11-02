@@ -11,6 +11,9 @@ local script_name = mp.get_script_name()
 local opts = {
     -- Show likes info automatically when video starts
     show_on_start = true,
+
+    -- Tries to get data for local Files
+    show_for_local_files = true,
     
     -- Duration to show the OSD message (in seconds)
     osd_duration = 5,
@@ -44,6 +47,8 @@ local osd_visible = nil
 local uosc_present = false
 local ytdl_path = nil
 
+-- For local Files part
+
 -- Find yt-dlp executable path (parts lifted from ytdl_hook)
 local function find_ytdl_path()
     if ytdl_path then return ytdl_path end
@@ -63,6 +68,62 @@ local function find_ytdl_path()
     ytdl_path = "yt-dlp"
     return ytdl_path
 end
+
+
+-- Extract YouTube ID from filename for offline videos
+local function extract_youtube_id_from_filename(filepath)
+    local id = filepath:match("%[([%w-_]+)%]")
+    if id and #id == 11 then
+        msg.info("Found YouTube ID. Fetching data. This may take a while...")
+        return id
+    end
+    return nil 
+end
+
+-- Fetch video data using YouTube ID
+local function fetch_video_data_for_local(youtube_id, purl)
+    local yt_dlp_path = find_ytdl_path()
+    local url = "https://www.youtube.com/watch?v=" .. youtube_id
+
+    local args = {yt_dlp_path, "--dump-json", "--no-download", "--no-sponsorblock", purl or url}
+    
+    local result = mp.command_native{
+        name = "subprocess",
+        capture_stdout = true,
+        playback_only = false,
+        args = args
+    }
+    
+    if result.stdout then
+        local json_data = utils.parse_json(result.stdout)
+        if json_data then
+            process_ytdl_data(json_data)
+        end
+    else
+        msg.error("Failed to fetch video data: " .. (result.stderr or "unknown error"))
+    end
+end
+
+-- Clear data when file changes
+mp.register_event("file-loaded", function()
+    -- For offline videos, try to extract YouTube ID from filename or PURL
+    local filepath = mp.get_property("path", "")
+
+    if filepath and not filepath:match("^https?://") and opts.show_for_local_files then
+
+        local youtube_id = extract_youtube_id_from_filename(filepath)
+        if youtube_id then msg.info("Found YouTube ID in filename: " .. youtube_id) end
+        local purl = mp.get_property("metadata/by-key/PURL")
+        if purl then msg.info("Found PURL in the Video: ".. purl) end
+
+        if youtube_id or purl then
+            fetch_video_data_for_local(youtube_id, purl)
+        end
+    end
+
+end)
+
+-- Rest
 
 -- Format large numbers in a compact way
 local function format_number(num)
@@ -204,40 +265,6 @@ local function process_ytdl_data(ytdl_data)
     end
 end
 
--- Extract YouTube ID from filename for offline videos
-local function extract_youtube_id_from_filename(filepath)
-    local id = filepath:match("%[([%w-_]+)%]")
-    if id and #id == 11 then
-        msg.info("Found YouTube ID. Fetching data. This may take a while...")
-        return id
-    end
-    return nil 
-end
-
--- Fetch video data using YouTube ID
-local function fetch_video_data_for_local(youtube_id, purl)
-    local yt_dlp_path = find_ytdl_path()
-    local url = "https://www.youtube.com/watch?v=" .. youtube_id
-
-    local args = {yt_dlp_path, "--dump-json", "--no-download", "--no-sponsorblock", purl or url}
-    
-    local result = mp.command_native{
-        name = "subprocess",
-        capture_stdout = true,
-        playback_only = false,
-        args = args
-    }
-    
-    if result.stdout then
-        local json_data = utils.parse_json(result.stdout)
-        if json_data then
-            process_ytdl_data(json_data)
-        end
-    else
-        msg.error("Failed to fetch video data: " .. (result.stderr or "unknown error"))
-    end
-end
-
 -- Monitor for yt-dlp JSON data
 mp.observe_property('user-data/mpv/ytdl/json-subprocess-result', 'native', function(_, ytdl_result)
     if not ytdl_result then return end
@@ -263,25 +290,6 @@ mp.register_event("start-file", function()
     -- hide button in case of youtube video -> local file, button would still show up.
     mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({icon = "", hide = true}))
 end)
--- Clear data when file changes
-mp.register_event("file-loaded", function()
-    -- For offline videos, try to extract YouTube ID from filename or PURL
-    local filepath = mp.get_property("path", "")
-
-    if filepath and not filepath:match("^https?://") then
-
-        local youtube_id = extract_youtube_id_from_filename(filepath)
-        if youtube_id then msg.info("Found YouTube ID in filename: " .. youtube_id) end
-        local purl = mp.get_property("metadata/by-key/PURL")
-        if purl then msg.info("Found PURL in the Video: ".. purl) end
-
-        if youtube_id or purl then
-            fetch_video_data_for_local(youtube_id, purl)
-        end
-    end
-
-end)
-
 
 mp.register_script_message("show-youtube-likes", show_likes_info)
 
