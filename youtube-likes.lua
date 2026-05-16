@@ -83,6 +83,7 @@ end
 -- Fetch video data using YouTube ID
 local function fetch_video_data_for_local(youtube_id, purl)
     local yt_dlp_path = find_ytdl_path()
+    youtube_id = youtube_id or ""
     local url = "https://www.youtube.com/watch?v=" .. youtube_id
 
     local args = {yt_dlp_path, "--dump-json", "--no-download", "--no-sponsorblock", purl or url}
@@ -110,7 +111,6 @@ mp.register_event("file-loaded", function()
     local filepath = mp.get_property("path", "")
 
     if filepath and not filepath:match("^https?://") and opts.show_for_local_files then
-
         local youtube_id = extract_youtube_id_from_filename(filepath)
         if youtube_id then msg.info("Found YouTube ID in filename: " .. youtube_id) end
         local purl = mp.get_property("metadata/by-key/PURL")
@@ -217,7 +217,7 @@ local function show_likes_info()
 end
 
 -- Process the JSON data from yt-dlp
-local function process_ytdl_data(ytdl_data)
+function process_ytdl_data(ytdl_data)
     if not ytdl_data then msg.debug("No yt-dlp data") return end
     msg.debug("Processing yt-dlp data")
 
@@ -311,6 +311,4 @@ msg.info("Video info script loaded.")
 mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({icon = "", hide = true}))
 mp.register_script_message('uosc-version', function(version)
     uosc_present = true
-  end)
-
-  --TODO: says no data available but button shows the data.Button is also with icon.
+end)
