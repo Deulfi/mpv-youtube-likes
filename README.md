@@ -85,7 +85,7 @@ for PURL or
 ```
 for ID
 resulting in a filename like:
-"Some video title [x2cYNfg3b14].mkv"
+"Some video title [x2cYNfg3b14].mkv"  
 Of note is that it might take a few seconds until the script receives the metadata from yt-dlp.
 
 ## Requirements
