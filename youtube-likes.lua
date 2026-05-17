@@ -46,6 +46,7 @@ local video_data = nil
 local osd_visible = nil
 local uosc_present = false
 local ytdl_path = nil
+local engaged = false
 
 -- For local Files part
 
@@ -83,6 +84,7 @@ end
 -- Fetch video data using YouTube ID
 local function fetch_video_data_for_local(youtube_id, purl)
     local yt_dlp_path = find_ytdl_path()
+    mp.msg.debug("Fetching video data for local file with youtube_id:", youtube_id, " or purl:", purl)
     youtube_id = youtube_id or ""
     local url = "https://www.youtube.com/watch?v=" .. youtube_id
 
@@ -106,8 +108,12 @@ local function fetch_video_data_for_local(youtube_id, purl)
 end
 
 -- Clear data when file changes
+--MARK: file loaded
 mp.register_event("file-loaded", function()
     -- For offline videos, try to extract YouTube ID from filename or PURL
+
+    -- dont run for streams or when ytdl_hook already provided data
+    if engaged then return end
     local filepath = mp.get_property("path", "")
 
     if filepath and not filepath:match("^https?://") and opts.show_for_local_files then
@@ -117,10 +123,17 @@ mp.register_event("file-loaded", function()
         if purl then msg.info("Found PURL in the Video: ".. purl) end
 
         if youtube_id or purl then
+            mp.msg.error("id or purl found")
             fetch_video_data_for_local(youtube_id, purl)
+        else
+            mp.msg.debug("youtube-likes: no youtube_id or purl found")
         end
+    else
+        mp.msg.error("youtube-likes: no filepath")
     end
-
+end)
+mp.register_event("start-file", function()
+    engaged = false
 end)
 
 -- Rest
@@ -279,7 +292,7 @@ mp.observe_property('user-data/mpv/ytdl/json-subprocess-result', 'native', funct
         msg.error("Failed to parse yt-dlp JSON: " .. (err or "unknown error"))
         return
     end
-    
+    engaged = true
     msg.info("Proceeding with yt-dlp data")
     process_ytdl_data(json_data)
 end)
@@ -306,7 +319,6 @@ mp.register_script_message("get-video-likes", function()
     end
 end)
 
-msg.info("Video info script loaded.")
 -- Init Button in invisible state.
 mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({icon = "", hide = true}))
 mp.register_script_message('uosc-version', function(version)
