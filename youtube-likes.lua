@@ -48,9 +48,38 @@ local uosc_present = false
 local ytdl_path = nil
 local engaged = false
 
+
+-- Format large numbers in a compact way
+local function format_number(num)
+    if not num or num == 0 then
+        return "0"
+    end
+    
+    if not opts.compact_numbers then
+        -- Add commas for thousands separator
+        local formatted = tostring(num)
+        local k
+        while true do
+            formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+            if k == 0 then break end
+        end
+        return formatted
+    end
+    
+    -- Compact format (1.2M, 3.4K, etc.)
+    if num >= 1000000 then
+        return string.format("%.1fM", num / 1000000)
+    elseif num >= 1000 then
+        return string.format("%.1fK", num / 1000)
+    else
+        return tostring(num)
+    end
+end
+
 -- For local Files part
 
 -- Find yt-dlp executable path (parts lifted from ytdl_hook)
+--MARK: find yt-dlp path
 local function find_ytdl_path()
     if ytdl_path then return ytdl_path end
     local platform_is_windows = (package.config:sub(1, 1) == "\\")
@@ -72,6 +101,7 @@ end
 
 
 -- Extract YouTube ID from filename for offline videos
+--MARK: extract yt id
 local function extract_youtube_id_from_filename(filepath)
     local id = filepath:match("%[([%w-_]+)%]")
     if id and #id == 11 then
@@ -82,6 +112,7 @@ local function extract_youtube_id_from_filename(filepath)
 end
 
 -- Fetch video data using YouTube ID
+--MARK: fetch local data
 local function fetch_video_data_for_local(youtube_id, purl)
     local yt_dlp_path = find_ytdl_path()
     mp.msg.debug("Fetching video data for local file with youtube_id:", youtube_id, " or purl:", purl)
@@ -132,40 +163,13 @@ mp.register_event("file-loaded", function()
         mp.msg.error("youtube-likes: no filepath")
     end
 end)
-mp.register_event("start-file", function()
-    engaged = false
-end)
 
 -- Rest
 
--- Format large numbers in a compact way
-local function format_number(num)
-    if not num or num == 0 then
-        return "0"
-    end
-    
-    if not opts.compact_numbers then
-        -- Add commas for thousands separator
-        local formatted = tostring(num)
-        local k
-        while true do
-            formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
-            if k == 0 then break end
-        end
-        return formatted
-    end
-    
-    -- Compact format (1.2M, 3.4K, etc.)
-    if num >= 1000000 then
-        return string.format("%.1fM", num / 1000000)
-    elseif num >= 1000 then
-        return string.format("%.1fK", num / 1000)
-    else
-        return tostring(num)
-    end
-end
+
 
 -- Display the likes information
+--MARK: show likes info
 local function show_likes_info()
     -- If OSD is currently visible, hide it
     if osd_visible then
@@ -230,6 +234,7 @@ local function show_likes_info()
 end
 
 -- Process the JSON data from yt-dlp
+--MARK: process yt-dlp data
 function process_ytdl_data(ytdl_data)
     if not ytdl_data then msg.debug("No yt-dlp data") return end
     msg.debug("Processing yt-dlp data")
@@ -278,22 +283,23 @@ function process_ytdl_data(ytdl_data)
     end
 end
 
--- Monitor for yt-dlp JSON data
+-- Monitor for ytdl-hook JSON data
+--MARK: observe yt-dlp data
 mp.observe_property('user-data/mpv/ytdl/json-subprocess-result', 'native', function(_, ytdl_result)
     if not ytdl_result then return end
     
     if ytdl_result.status ~= 0 or not ytdl_result.stdout then
-        msg.warn("Failed to get yt-dlp data")
+        msg.warn("Failed to get ytdl_hook data")
         return
     end
     
     local json_data, err = utils.parse_json(ytdl_result.stdout)
     if not json_data then
-        msg.error("Failed to parse yt-dlp JSON: " .. (err or "unknown error"))
+        msg.error("Failed to parse ytdl_hook JSON: " .. (err or "unknown error"))
         return
     end
     engaged = true
-    msg.info("Proceeding with yt-dlp data")
+    msg.info("Proceeding with ytdl_hook data")
     process_ytdl_data(json_data)
 end)
 
@@ -302,6 +308,7 @@ mp.register_event("start-file", function()
     video_data = nil
     -- hide button in case of youtube video -> local file, button would still show up.
     mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({icon = "", hide = true}))
+    engaged = false
 end)
 
 mp.register_script_message("show-youtube-likes", show_likes_info)
@@ -319,7 +326,8 @@ mp.register_script_message("get-video-likes", function()
     end
 end)
 
--- Init Button in invisible state.
+
+-- Init Button in invisible state (mostly for when mpv is started idle).
 mp.commandv('script-message-to', 'uosc', 'set-button', 'Likes_Button', utils.format_json({icon = "", hide = true}))
 mp.register_script_message('uosc-version', function(version)
     uosc_present = true
