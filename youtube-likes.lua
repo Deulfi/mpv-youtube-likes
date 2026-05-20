@@ -154,13 +154,13 @@ mp.register_event("file-loaded", function()
         if purl then msg.info("Found PURL in the Video: ".. purl) end
 
         if youtube_id or purl then
-            mp.msg.error("id or purl found")
+            mp.msg.info("id or purl found")
             fetch_video_data_for_local(youtube_id, purl)
         else
-            mp.msg.debug("youtube-likes: no youtube_id or purl found")
+            mp.msg.debug("no youtube_id or purl found")
         end
     else
-        mp.msg.error("youtube-likes: no filepath")
+        mp.msg.error("no filepath")
     end
 end)
 
