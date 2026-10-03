@@ -7,7 +7,9 @@ Mpv script that displays YouTube video information including likes, (dislikes), 
 
 ## How it works
 
-The script monitors mpv's yt-dlp integration to extract video metadata when YouTube videos are loaded. It automatically formats and displays the information via OSD overlay and optionally creates a button in uosc for manual toggling.
+Video data comes from mpv's builtin ytdl hook: the script reads the yt-dlp JSON that mpv already captured while loading the stream (`user-data/mpv/ytdl/json-subprocess-result`), so no extra request is made. It formats and displays the information via OSD overlay and optionally creates a button in uosc for manual toggling.
+
+For local files the hook does not run, so as a fallback the script runs yt-dlp itself, reusing the executable and options mpv's hook is configured with (video id from the filename or the PURL tag).
 
 ## Installation
 
@@ -74,18 +76,13 @@ Edit `script-opts/youtube-likes.conf`:
 
 ## Local files
 
-This script also works with local files if the Youtube id is in the filename or the PURL in the metadata. You can achieve this with yt-dlp flags like:
+This script also works with local files if the Youtube id is in the filename. You can achieve this with yt-dlp filename flag like:
 
-```
---embed-metadata
-```
-for PURL or
 ```
 -o "%(title)s [%(id)s].%(ext)s"
 ```
-for ID
 resulting in a filename like:
-"Some video title [x2cYNfg3b14].mkv"  
+"Some video title [x2cYNfg3b14].mkv"
 Of note is that it might take a few seconds until the script receives the metadata from yt-dlp.
 
 ## Requirements
